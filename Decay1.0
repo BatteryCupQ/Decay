@@ -1,0 +1,489 @@
+-- ═══════════════════════════════════════════
+--       DECAY | PART 1: UI & MENU
+-- ═══════════════════════════════════════════
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LP = Players.LocalPlayer
+
+_G.DS = _G.DS or {}
+local DS = _G.DS
+
+DS.Config = DS.Config or {
+    Aim_Enabled = true, Aim_Visible = true, Aim_Range = 800, Aim_FOV = 200, Aim_Smooth = 0.2, Aim_ShowFOV = true,
+    ESP_Enabled = true, ESP_Box = true, ESP_Name = true, ESP_Dist = true,
+    Item_Enabled = true, Item_Filter = "cloth",
+    Noclip = false, World_Day = true, World_NoGrass = false,
+}
+local C = DS.Config
+
+local Theme = {
+    Bg = Color3.fromRGB(20, 20, 24), Side = Color3.fromRGB(28, 28, 34),
+    Tab = Color3.fromRGB(40, 40, 50), Accent = Color3.fromRGB(130, 90, 255),
+    Text = Color3.fromRGB(240, 240, 240), TextDim = Color3.fromRGB(150, 150, 160),
+    Green = Color3.fromRGB(70, 200, 100),
+}
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "DecayMenu"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.Parent = LP:WaitForChild("PlayerGui")
+DS.Gui = Gui
+
+-- ═══════════════ MAIN WINDOW ═══════════════
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 500, 0, 320)
+Main.Position = UDim2.new(0.5, -250, 0.5, -160)
+Main.BackgroundColor3 = Theme.Bg
+Main.BorderSizePixel = 0
+Main.Parent = Gui
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+local mainStroke = Instance.new("UIStroke", Main)
+mainStroke.Color = Color3.fromRGB(50, 50, 60)
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 30)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = Main
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "×"
+CloseBtn.TextColor3 = Theme.TextDim
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 20
+CloseBtn.Parent = TopBar
+CloseBtn.MouseEnter:Connect(function() CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100) end)
+CloseBtn.MouseLeave:Connect(function() CloseBtn.TextColor3 = Theme.TextDim end)
+
+-- ═══════════════ DRAG LOGIC ═══════════════
+local dragging, dragInput, dragStart, startPos
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    Main.Position = Main.Position:Lerp(targetPos, 0.5)
+end
+
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateDrag(input)
+    end
+end)
+
+-- ═══════════════ OPEN/CLOSE ═══════════════
+local isOpen = true
+local FloatBtn
+
+local function toggleMenu(state)
+    isOpen = state
+    if isOpen then
+        Main.Visible = true
+        TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -250, 0.5, -160)
+        }):Play()
+        FloatBtn.Visible = false
+    else
+        TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 100, 0.5, -160)
+        }):Play()
+        task.delay(0.3, function()
+            if not isOpen then
+                Main.Visible = false
+                FloatBtn.Visible = true
+            end
+        end)
+    end
+end
+
+CloseBtn.MouseButton1Click:Connect(function() toggleMenu(false) end)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then toggleMenu(not isOpen) end
+end)
+
+FloatBtn = Instance.new("TextButton")
+FloatBtn.Size = UDim2.new(0, 40, 0, 40)
+FloatBtn.Position = UDim2.new(1, -60, 0.5, -20)
+FloatBtn.BackgroundColor3 = Theme.Bg
+FloatBtn.Text = "DS"
+FloatBtn.TextColor3 = Theme.Accent
+FloatBtn.Font = Enum.Font.GothamBold
+FloatBtn.TextSize = 14
+FloatBtn.Visible = false
+FloatBtn.Parent = Gui
+Instance.new("UICorner", FloatBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", FloatBtn).Color = Theme.Accent
+FloatBtn.MouseButton1Click:Connect(function() toggleMenu(true) end)
+
+-- ═══════════════ UI CONTENT ═══════════════
+local Side = Instance.new("Frame")
+Side.Size = UDim2.new(0, 110, 1, 0)
+Side.BackgroundColor3 = Theme.Side
+Side.BorderSizePixel = 0
+Side.Parent = Main
+Instance.new("UICorner", Side).CornerRadius = UDim.new(0, 8)
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -120, 1, -20)
+Content.Position = UDim2.new(0, 115, 0, 10)
+Content.BackgroundTransparency = 1
+Content.Parent = Main
+
+local function makeTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 30)
+    btn.BackgroundColor3 = Theme.Tab
+    btn.BackgroundTransparency = 1
+    btn.Text = name
+    btn.TextColor3 = Theme.TextDim
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = Side
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    
+    local container = Instance.new("ScrollingFrame")
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.Visible = false
+    container.Parent = Content
+    return btn, container
+end
+
+local TabList = Instance.new("UIListLayout", Side)
+TabList.Padding = UDim.new(0, 4)
+Instance.new("UIPadding", Side).PaddingTop = UDim.new(0, 10)
+
+local AimBtn, AimTab = makeTab("Aimbot")
+local EspBtn, EspTab = makeTab("ESP")
+local WorldBtn, WorldTab = makeTab("World")
+local MiscBtn, MiscTab = makeTab("Misc")
+
+local activeTab = AimBtn
+AimTab.Visible = true
+AimBtn.TextColor3 = Theme.Text
+AimBtn.BackgroundTransparency = 0
+
+local function switchTab(btn)
+    if activeTab == btn then return end
+    for _, t in ipairs({AimBtn, EspBtn, WorldBtn, MiscBtn}) do
+        t.TextColor3 = Theme.TextDim; t.BackgroundTransparency = 1
+    end
+    btn.TextColor3 = Theme.Text; btn.BackgroundTransparency = 0
+    AimTab.Visible = (btn == AimBtn); EspTab.Visible = (btn == EspBtn)
+    WorldTab.Visible = (btn == WorldBtn); MiscTab.Visible = (btn == MiscBtn)
+    activeTab = btn
+end
+AimBtn.MouseButton1Click:Connect(function() switchTab(AimBtn) end)
+EspBtn.MouseButton1Click:Connect(function() switchTab(EspBtn) end)
+WorldBtn.MouseButton1Click:Connect(function() switchTab(WorldBtn) end)
+MiscBtn.MouseButton1Click:Connect(function() switchTab(MiscBtn) end)
+
+local function makeToggle(parent, text, key, y)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 26); row.BackgroundTransparency = 1; row.Position = UDim2.new(0,0,0,y); row.Parent = parent
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -50, 1, 0); lbl.BackgroundTransparency = 1
+    lbl.Text = text; lbl.TextColor3 = Theme.Text; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = row
+
+    local track = Instance.new("Frame")
+    track.Size = UDim2.new(0, 32, 0, 18); track.Position = UDim2.new(1, -32, 0.5, -9)
+    track.BackgroundColor3 = C[key] and Theme.Green or Theme.Tab; track.Parent = row
+    Instance.new("UICorner", track).CornerRadius = UDim.new(0.5, 0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 14, 0, 14)
+    knob.Position = C[key] and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
+    knob.BackgroundColor3 = Color3.new(1,1,1); knob.Parent = track
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(0.5, 0)
+
+    local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.Parent = row
+
+    btn.MouseButton1Click:Connect(function()
+        C[key] = not C[key]
+        track.BackgroundColor3 = C[key] and Theme.Green or Theme.Tab
+        knob:TweenPosition(C[key] and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7), "Out", "Quad", 0.1, true)
+    end)
+end
+
+local function makeInput(parent, text, key, y, isString)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 26); row.BackgroundTransparency = 1; row.Position = UDim2.new(0,0,0,y); row.Parent = parent
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -100, 1, 0); lbl.BackgroundTransparency = 1
+    lbl.Text = text; lbl.TextColor3 = Theme.Text; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = row
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 90, 0, 22); box.Position = UDim2.new(1, -90, 0.5, -11)
+    box.BackgroundColor3 = Theme.Tab; box.Text = tostring(C[key]); box.TextColor3 = Theme.Text
+    box.Font = Enum.Font.Code; box.TextSize = 11; box.ClearTextOnFocus = false; box.Parent = row
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+
+    box.FocusLost:Connect(function()
+        if isString then C[key] = box.Text
+        else local num = tonumber(box.Text); if num then C[key] = num else box.Text = tostring(C[key]) end end
+    end)
+end
+
+makeToggle(AimTab, "Enabled", "Aim_Enabled", 0)
+makeToggle(AimTab, "Visible Check", "Aim_Visible", 28)
+makeToggle(AimTab, "Show FOV Circle", "Aim_ShowFOV", 56)
+makeInput(AimTab, "Range (studs)", "Aim_Range", 84, false)
+makeInput(AimTab, "FOV (pixels)", "Aim_FOV", 112, false)
+makeInput(AimTab, "Smooth (0.1-1)", "Aim_Smooth", 140, false)
+
+makeToggle(EspTab, "Player ESP", "ESP_Enabled", 0)
+makeToggle(EspTab, "Draw Boxes", "ESP_Box", 28)
+makeToggle(EspTab, "Draw Names", "ESP_Name", 56)
+makeToggle(EspTab, "Draw Distance", "ESP_Dist", 84)
+makeToggle(EspTab, "Item ESP (Max 250m)", "Item_Enabled", 112)
+makeInput(EspTab, "Item Filter", "Item_Filter", 140, true)
+
+makeToggle(WorldTab, "Day Time", "World_Day", 0)
+makeToggle(WorldTab, "Remove Grass", "World_NoGrass", 28)
+
+makeToggle(MiscTab, "Noclip (Wallhack)", "Noclip", 0)
+
+print("[DECAY] Part 1 (UI) Loaded. Waiting for Part 2...")
+
+-- ═══════════════════════════════════════════
+--       DECAY | PART 2: LOGIC & VISUALS
+-- ═══════════════════════════════════════════
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+local LP = Players.LocalPlayer
+
+local DS = _G.DS
+if not DS or not DS.Gui or not DS.Config then
+    warn("[DECAY] Ошибка! Сначала запусти Часть 1.")
+    return
+end
+local C = DS.Config
+local Gui = DS.Gui
+
+-- ═══════════════ VISUAL ELEMENTS ═══════════════
+local fovCircle = Instance.new("Frame")
+fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+fovCircle.BackgroundTransparency = 1
+fovCircle.Parent = Gui
+local fovStroke = Instance.new("UIStroke", fovCircle)
+fovStroke.Color = Color3.fromRGB(130, 90, 255); fovStroke.Thickness = 1; fovStroke.Transparency = 0.5
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(0.5, 0)
+
+local drawLayer = Instance.new("Frame")
+drawLayer.Size = UDim2.new(1, 0, 1, 0); drawLayer.BackgroundTransparency = 1; drawLayer.Parent = Gui
+
+local espData, itemDrawings, itemCache = {}, {}, {}
+
+-- ═══════════════ LOGIC FUNCTIONS ═══════════════
+local function getClosestPlayer()
+    local target, minDist = nil, C.Aim_FOV
+    local vpSize = Camera.ViewportSize
+    local center = Vector2.new(vpSize.X / 2, vpSize.Y / 2)
+    local myChar = LP.Character
+    local myHead = myChar and myChar:FindFirstChild("Head")
+    if not myHead then return nil end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if head and hum and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen and screenPos.Z > 0 then
+                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    local dist3d = (head.Position - myHead.Position).Magnitude
+                    if screenDist < minDist and dist3d <= C.Aim_Range then
+                        minDist = screenDist; target = head; target.Parent = plr.Character
+                    end
+                end
+            end
+        end
+    end
+    if target and C.Aim_Visible then
+        local rayParam = RaycastParams.new()
+        rayParam.FilterDescendantsInstances = {LP.Character, target.Parent}
+        rayParam.FilterType = Enum.RaycastFilterType.Exclude
+        local hit = workspace:Raycast(Camera.CFrame.Position, target.Position - Camera.CFrame.Position, rayParam)
+        if hit then return nil end
+    end
+    return target
+end
+
+-- ═══════════════ AIMBOT ═══════════════
+RunService:BindToRenderStep("AimbotCam", Enum.RenderPriority.Camera.Value + 1, function(dt)
+    if not C.Aim_Enabled then return end
+    local target = getClosestPlayer()
+    if target then
+        local targetCF = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+        Camera.CFrame = Camera.CFrame:Lerp(targetCF, math.clamp(C.Aim_Smooth, 0.01, 1))
+    end
+end)
+
+-- ═══════════════ WORLD / DAY-NIGHT ═══════════════
+RunService.Heartbeat:Connect(function()
+    if C.World_Day then 
+        if math.abs(Lighting.ClockTime - 14) > 0.1 then Lighting.ClockTime = 14 end
+    else 
+        if math.abs(Lighting.ClockTime - 0) > 0.1 then Lighting.ClockTime = 0 end 
+    end
+end)
+
+local hiddenGrass, grassState = {}, nil
+RunService.Heartbeat:Connect(function()
+    if grassState ~= C.World_NoGrass then
+        grassState = C.World_NoGrass
+        if grassState then
+            workspace.Terrain.Decoration = false
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") and (v.Name:lower():find("grass") or v.Name:lower():find("foliage")) then
+                    if not hiddenGrass[v] then hiddenGrass[v] = {T = v.Transparency, C = v.CanCollide}; v.Transparency = 1; v.CanCollide = false end
+                end
+            end
+        else
+            for v, data in pairs(hiddenGrass) do if v and v.Parent then v.Transparency = data.T; v.CanCollide = data.C end end
+            table.clear(hiddenGrass)
+        end
+    end
+end)
+
+-- ═══════════════ NOCLIP ═══════════════
+RunService.Stepped:Connect(function()
+    if C.Noclip and LP.Character then
+        for _, p in ipairs(LP.Character:GetDescendants()) do
+            if p:IsA("BasePart") and p.CanCollide then p.CanCollide = false end
+        end
+    end
+end)
+
+-- ═══════════════ ITEM ESP (Loot) ═══════════════
+workspace.DescendantAdded:Connect(function(inst)
+    if C.Item_Enabled and (inst:IsA("BasePart") or inst:IsA("Model")) then
+        if inst.Name:lower():find(C.Item_Filter:lower()) then table.insert(itemCache, inst) end
+    end
+end)
+
+-- ═══════════════ MAIN RENDER LOOP ═══════════════
+RunService.RenderStepped:Connect(function()
+    local vpSize = Camera.ViewportSize
+    local center = Vector2.new(vpSize.X / 2, vpSize.Y / 2)
+
+    -- FOV
+    if C.Aim_Enabled and C.Aim_ShowFOV then
+        fovCircle.Visible = true
+        fovCircle.Position = UDim2.new(0, center.X, 0, center.Y)
+        fovCircle.Size = UDim2.new(0, C.Aim_FOV * 2, 0, C.Aim_FOV * 2)
+    else fovCircle.Visible = false end
+
+    -- Player ESP
+    if C.ESP_Enabled then
+        local myChar = LP.Character
+        local myPos = myChar and myChar:FindFirstChild("HumanoidRootPart") and myChar.HumanoidRootPart.Position
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == LP then continue end
+            local char = plr.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local head = char and char:FindFirstChild("Head")
+
+            if char and hum and hum.Health > 0 and root and head then
+                local topPos, topOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                local botPos, botOn = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.8, 0))
+
+                if topOn and botOn and topPos.Z > 0 then
+                    local e = espData[plr]
+                    if not e then
+                        e = { box = Instance.new("Frame", drawLayer), stroke = Instance.new("UIStroke"), name = Instance.new("TextLabel"), dist = Instance.new("TextLabel") }
+                        e.box.BackgroundTransparency = 1; e.box.BorderSizePixel = 0
+                        e.stroke.Color = Color3.fromRGB(255, 60, 60); e.stroke.Parent = e.box
+                        e.name.BackgroundTransparency = 1; e.name.TextColor3 = Color3.new(1,1,1)
+                        e.name.Font = Enum.Font.GothamBold; e.name.TextSize = 12; e.name.TextStrokeTransparency = 0
+                        e.name.Size = UDim2.new(0, 150, 0, 15); e.name.Position = UDim2.new(0.5, -75, -1.2, 0); e.name.Parent = e.box
+                        e.dist.BackgroundTransparency = 1; e.dist.TextColor3 = Color3.fromRGB(220,220,220)
+                        e.dist.Font = Enum.Font.Gotham; e.dist.TextSize = 11; e.dist.TextStrokeTransparency = 0
+                        e.dist.Size = UDim2.new(0, 150, 0, 15); e.dist.Position = UDim2.new(0.5, -75, 1, 2); e.dist.Parent = e.box
+                        espData[plr] = e
+                    end
+                    local h = math.abs(botPos.Y - topPos.Y); local w = h * 0.6
+                    e.box.Visible = C.ESP_Box; e.box.Position = UDim2.new(0, topPos.X - (w/2), 0, topPos.Y); e.box.Size = UDim2.new(0, w, 0, h)
+                    e.name.Visible = C.ESP_Name; e.name.Text = plr.Name
+                    e.dist.Visible = C.ESP_Dist; local d = myPos and math.floor((root.Position - myPos).Magnitude) or 0; e.dist.Text = d .. "m"
+                else
+                    if espData[plr] then espData[plr].box.Visible = false end
+                end
+            else
+                if espData[plr] then espData[plr].box.Visible = false end
+            end
+        end
+    else
+        for _, e in pairs(espData) do e.box.Visible = false end
+    end
+
+    -- Item ESP
+    if not C.Item_Enabled then 
+        for _, v in pairs(itemDrawings) do if v.text then v.text.Visible = false; v.square.Visible = false end end
+        return 
+    end
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local validItems = {}
+    for i = #itemCache, 1, -1 do if not itemCache[i].Parent then table.remove(itemCache, i) end end
+
+    for _, v in ipairs(itemCache) do
+        local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
+        if part and v.Name:lower():find(C.Item_Filter:lower()) then
+            local dist = (part.Position - myRoot.Position).Magnitude
+            if dist <= 250 then
+                local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen and sp.Z > 0 then validItems[v] = { pos = Vector2.new(sp.X, sp.Y), dist = dist, name = v.Name } end
+            end
+        end
+    end
+
+    local useDrawing = pcall(function() return Drawing.new("Text") end)
+    for v, data in pairs(validItems) do
+        if not itemDrawings[v] and useDrawing then
+            local txt = Drawing.new("Text"); txt.Size = 14; txt.Color = Color3.fromRGB(255, 220, 50)
+            txt.Center = true; txt.Outline = true; txt.OutlineColor = Color3.new(0,0,0)
+            local sq = Drawing.new("Square"); sq.Thickness = 1; sq.Color = Color3.fromRGB(255, 220, 50); sq.Filled = false
+            itemDrawings[v] = { text = txt, square = sq }
+        end
+        if itemDrawings[v] and useDrawing then
+            local d = itemDrawings[v]
+            d.text.Text = data.name .. " [" .. math.floor(data.dist) .. "m]"
+            d.text.Position = Vector2.new(data.pos.X, data.pos.Y - 20); d.text.Visible = true
+            d.square.Size = Vector2.new(10, 10); d.square.Position = Vector2.new(data.pos.X - 5, data.pos.Y - 5); d.square.Visible = true
+        end
+    end
+    for v, d in pairs(itemDrawings) do 
+        if not validItems[v] and useDrawing then d.text.Visible = false; d.square.Visible = false end 
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    if espData[plr] then espData[plr].box:Destroy(); espData[plr] = nil end
+end)
+
+print("[DECAY] Part 2 (Logic) Loaded.")
