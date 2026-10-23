@@ -1,0 +1,742 @@
+-- ═══════════════════════════════════════════
+--       DECAY | PART 1: UI & MENU
+-- ═══════════════════════════════════════════
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local playerGui = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui")
+
+_G.DS = _G.DS or {}
+local DS = _G.DS
+
+DS.Config = DS.Config or {
+    Aim_Enabled = true, Aim_Visible = false, Aim_ShowFOV = true, Aim_Projectile = false,
+    Aim_Range = 800, Aim_FOV = 200, Aim_Smooth = 0.2, Aim_ProjSpeed = 150,
+    ESP_Enabled = true, ESP_Box = true, ESP_Name = true, ESP_Dist = true, ESP_3D = false,
+    Item_Enabled = true, Item_Filter = "cloth",
+    World_Day = true, World_NoGrass = false,
+    AutoLoot = false, TP_Safe = true, Noclip = false,
+    KillFloor = false, SilentAim = false, Spinbot = false,
+    FastReload = false, NoRecoil = false,
+    DarkSky = false, ChamsGun = false,
+}
+local Config = DS.Config
+
+pcall(function()
+    local old = playerGui:FindFirstChild("DecayAndroidUI")
+    if old then old:Destroy() end
+end)
+
+local T = {
+    bg = Color3.fromRGB(16,16,21), panel = Color3.fromRGB(24,24,32),
+    row = Color3.fromRGB(31,30,41), border = Color3.fromRGB(55,52,69),
+    accent = Color3.fromRGB(139,102,255), accentDark = Color3.fromRGB(58,43,94),
+    text = Color3.fromRGB(245,243,250), muted = Color3.fromRGB(157,153,174),
+    green = Color3.fromRGB(105,220,161), red = Color3.fromRGB(255,80,80)
+}
+DS.Theme = T
+
+local function tw(obj, sec, props)
+    local ok, t = pcall(function()
+        local x = TweenService:Create(obj, TweenInfo.new(sec, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props)
+        x:Play(); return x
+    end)
+    return ok and t
+end
+local function round(o, n)
+    local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,n or 10); c.Parent=o
+end
+local function outline(o, col)
+    local s=Instance.new("UIStroke"); s.Color=col or T.border; s.Thickness=1; s.Transparency=.15; s.Parent=o
+end
+local function txt(parent, value, size, color, font)
+    local l=Instance.new("TextLabel"); l.BackgroundTransparency=1; l.Text=value
+    l.TextSize=size or 13; l.TextColor3=color or T.text; l.Font=font or Enum.Font.Gotham
+    l.TextXAlignment=Enum.TextXAlignment.Left; l.TextYAlignment=Enum.TextYAlignment.Center
+    l.Parent=parent; return l
+end
+
+local gui=Instance.new("ScreenGui")
+gui.Name="DecayAndroidUI"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true
+gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.DisplayOrder=999999; gui.Parent=playerGui
+DS.Gui = gui
+
+local main=Instance.new("Frame")
+main.Name="Main"; main.AnchorPoint=Vector2.new(.5,.5)
+main.Size=UDim2.new(.88,0,0,365); main.Position=UDim2.new(.5,0,.5,0)
+main.BackgroundColor3=T.bg; main.BorderSizePixel=0; main.Parent=gui
+main.ClipsDescendants=true; round(main,15); outline(main)
+
+local sizeLimit=Instance.new("UISizeConstraint")
+sizeLimit.MinSize=Vector2.new(280,330); sizeLimit.MaxSize=Vector2.new(480,460); sizeLimit.Parent=main
+local aspect=Instance.new("UIAspectRatioConstraint")
+aspect.AspectRatio=1.12; aspect.DominantAxis=Enum.DominantAxis.Width; aspect.Parent=main
+
+local top=Instance.new("Frame"); top.Name="Header"; top.Size=UDim2.new(1,0,0,62)
+top.BackgroundColor3=T.panel; top.BorderSizePixel=0; top.Parent=main
+local logo=Instance.new("Frame"); logo.Size=UDim2.fromOffset(36,36); logo.Position=UDim2.fromOffset(13,13)
+logo.BackgroundColor3=T.accent; logo.BorderSizePixel=0; logo.Parent=top; round(logo,10)
+local d=txt(logo,"D",20,Color3.new(1,1,1),Enum.Font.GothamBold)
+d.Size=UDim2.fromScale(1,1); d.TextXAlignment=Enum.TextXAlignment.Center
+local title=txt(top,"DECAY",16,T.text,Enum.Font.GothamBold); title.Position=UDim2.fromOffset(59,10); title.Size=UDim2.new(1,-130,0,23)
+local sub=txt(top,"ANDROID  •  SCRIPT",9,T.muted,Enum.Font.GothamMedium); sub.Position=UDim2.fromOffset(60,32); sub.Size=UDim2.new(1,-130,0,15)
+local close=Instance.new("TextButton"); close.Size=UDim2.fromOffset(38,38); close.Position=UDim2.new(1,-49,0,12)
+close.BackgroundColor3=T.row; close.Text="—"; close.TextSize=18; close.TextColor3=T.muted
+close.Font=Enum.Font.GothamBold; close.AutoButtonColor=false; close.Parent=top; round(close,10)
+
+local tabs=Instance.new("Frame"); tabs.Position=UDim2.fromOffset(10,72); tabs.Size=UDim2.new(1,-20,0,40)
+tabs.BackgroundTransparency=1; tabs.Parent=main
+local tabLayout=Instance.new("UIListLayout"); tabLayout.FillDirection=Enum.FillDirection.Horizontal
+tabLayout.Padding=UDim.new(0,3); tabLayout.SortOrder=Enum.SortOrder.LayoutOrder; tabLayout.Parent=tabs
+
+local content=Instance.new("Frame"); content.Position=UDim2.fromOffset(10,120)
+content.Size=UDim2.new(1,-20,1,-130); content.BackgroundTransparency=1; content.Parent=main
+
+local toastHolder=Instance.new("Frame"); toastHolder.Name="ToastHolder"; toastHolder.AnchorPoint=Vector2.new(1,1)
+toastHolder.Position=UDim2.new(1,-12,1,-12); toastHolder.Size=UDim2.new(.8,0,0,180)
+toastHolder.BackgroundTransparency=1; toastHolder.Parent=gui
+local toastList=Instance.new("UIListLayout"); toastList.VerticalAlignment=Enum.VerticalAlignment.Bottom
+toastList.HorizontalAlignment=Enum.HorizontalAlignment.Right; toastList.Padding=UDim.new(0,7); toastList.Parent=toastHolder
+
+local function toast(head, body, color)
+    local card=Instance.new("Frame"); card.Size=UDim2.new(1,0,0,58); card.BackgroundColor3=T.panel
+    card.BackgroundTransparency=1; card.BorderSizePixel=0; card.Parent=toastHolder; round(card,10); outline(card)
+    local stripe=Instance.new("Frame"); stripe.Size=UDim2.new(0,3,1,-18); stripe.Position=UDim2.fromOffset(0,9)
+    stripe.BackgroundColor3=color or T.accent; stripe.BorderSizePixel=0; stripe.Parent=card; round(stripe,2)
+    local h=txt(card,head,12,T.text,Enum.Font.GothamBold); h.Position=UDim2.fromOffset(12,6); h.Size=UDim2.new(1,-20,0,20)
+    local b=txt(card,body,10,T.muted); b.Position=UDim2.fromOffset(12,28); b.Size=UDim2.new(1,-20,0,20); b.TextWrapped=true
+    tw(card,.2,{BackgroundTransparency=.03})
+    task.delay(2.7,function() if card.Parent then tw(card,.18,{BackgroundTransparency=1}); task.wait(.2); if card.Parent then card:Destroy() end end end)
+end
+DS.Toast = toast
+
+local pageMap, tabButtons = {}, {}
+local function newPage(name)
+    local p=Instance.new("ScrollingFrame"); p.Name=name; p.Size=UDim2.fromScale(1,1)
+    p.BackgroundTransparency=1; p.BorderSizePixel=0; p.ScrollBarThickness=2
+    p.ScrollBarImageColor3=T.accent; p.CanvasSize=UDim2.new(0,0,0,0); p.Visible=false; p.Parent=content
+    local layout=Instance.new("UIListLayout"); layout.Padding=UDim.new(0,8); layout.SortOrder=Enum.SortOrder.LayoutOrder; layout.Parent=p
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        p.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+4)
+    end)
+    pageMap[name]=p; return p
+end
+
+local function row(parent, titleText, descText, kind, initial, key)
+    local r=Instance.new("Frame"); r.Size=UDim2.new(1,-3,0,58); r.BackgroundColor3=T.panel
+    r.BorderSizePixel=0; r.Parent=parent; round(r,10); outline(r)
+    local a=txt(r,titleText,12,T.text,Enum.Font.GothamSemibold); a.Position=UDim2.fromOffset(12,7); a.Size=UDim2.new(1,-110,0,20)
+    local b=txt(r,descText,9,T.muted); b.Position=UDim2.fromOffset(12,29); b.Size=UDim2.new(1,-110,0,18)
+    
+    if kind=="toggle" then
+        local track=Instance.new("TextButton"); track.Size=UDim2.fromOffset(42,24); track.Position=UDim2.new(1,-54,.5,-12)
+        track.Text=""; track.AutoButtonColor=false; track.BackgroundColor3=initial and T.accent or T.border; track.Parent=r; round(track,12)
+        local knob=Instance.new("Frame"); knob.Size=UDim2.fromOffset(18,18); knob.Position=initial and UDim2.new(1,-21,.5,-9) or UDim2.new(0,3,.5,-9)
+        knob.BackgroundColor3=Color3.new(1,1,1); knob.BorderSizePixel=0; knob.Parent=track; round(knob,10)
+        track.Activated:Connect(function()
+            Config[key]=not Config[key]
+            tw(track,.15,{BackgroundColor3=Config[key] and T.accent or T.border})
+            tw(knob,.15,{Position=Config[key] and UDim2.new(1,-21,.5,-9) or UDim2.new(0,3,.5,-9)})
+        end)
+    elseif kind == "input" then
+        local box=Instance.new("TextBox"); box.Size=UDim2.fromOffset(80,28); box.Position=UDim2.new(1,-92,.5,-14)
+        box.BackgroundColor3=T.row; box.Text=tostring(initial); box.TextColor3=T.text
+        box.TextSize=12; box.Font=Enum.Font.GothamBold; box.ClearTextOnFocus=false; box.Parent=r; round(box,8)
+        box.FocusLost:Connect(function()
+            if type(initial) == "number" then
+                local num = tonumber(box.Text)
+                if num then Config[key] = num else box.Text = tostring(Config[key]) end
+            else
+                Config[key] = box.Text
+            end
+        end)
+    end
+    return r
+end
+
+local pages = { Aim = newPage("Aim"), Esp = newPage("Esp"), Guns = newPage("Guns"), Vis = newPage("Vis"), World = newPage("World"), Misc = newPage("Misc") }
+
+row(pages.Aim,"Enable Aimbot","Toggle aimbot system.","toggle",Config.Aim_Enabled,"Aim_Enabled")
+row(pages.Aim,"Visible Check","Ignore targets behind walls.","toggle",Config.Aim_Visible,"Aim_Visible")
+row(pages.Aim,"Show FOV","Draw aimbot radius.","toggle",Config.Aim_ShowFOV,"Aim_ShowFOV")
+row(pages.Aim,"Projectile Mode","Predict arrow drop & movement.","toggle",Config.Aim_Projectile,"Aim_Projectile")
+row(pages.Aim,"Range","Max targeting distance.","input",Config.Aim_Range,"Aim_Range")
+row(pages.Aim,"FOV","Field of View in pixels.","input",Config.Aim_FOV,"Aim_FOV")
+row(pages.Aim,"Smoothness","0.1 (fast) to 1.0 (slow).","input",Config.Aim_Smooth,"Aim_Smooth")
+row(pages.Aim,"Arrow Speed","Projectile velocity for bow.","input",Config.Aim_ProjSpeed,"Aim_ProjSpeed")
+
+row(pages.Esp,"Player ESP","Enable visual overlay.","toggle",Config.ESP_Enabled,"ESP_Enabled")
+row(pages.Esp,"Boxes","Draw bounding boxes.","toggle",Config.ESP_Box,"ESP_Box")
+row(pages.Esp,"Names","Show player names.","toggle",Config.ESP_Name,"ESP_Name")
+row(pages.Esp,"Distance","Show distance in meters.","toggle",Config.ESP_Dist,"ESP_Dist")
+row(pages.Esp,"3D ESP","Draw boxes in world space.","toggle",Config.ESP_3D,"ESP_3D")
+row(pages.Esp,"Item ESP","Highlight loot around you.","toggle",Config.Item_Enabled,"Item_Enabled")
+row(pages.Esp,"Item Filter","Item name (e.g. cloth, scrap).","input",Config.Item_Filter,"Item_Filter")
+
+row(pages.Guns,"Fast Reload","Reload weapons instantly.","toggle",Config.FastReload,"FastReload")
+row(pages.Guns,"No Recoil","Removes weapon kick.","toggle",Config.NoRecoil,"NoRecoil")
+
+row(pages.Vis,"Dark Sky","Changes sky to dark.","toggle",Config.DarkSky,"DarkSky")
+row(pages.Vis,"Chams Guns","Red glow & skeleton on guns.","toggle",Config.ChamsGun,"ChamsGun")
+
+row(pages.World,"Always Day","Force daytime 14:00.","toggle",Config.World_Day,"World_Day")
+row(pages.World,"Remove Grass","Hide map foliage.","toggle",Config.World_NoGrass,"World_NoGrass")
+
+row(pages.Misc,"Auto Loot (50m)","Teleports to crates & loots.","toggle",Config.AutoLoot,"AutoLoot")
+row(pages.Misc,"Safe Teleport","Bypass anti-cheat rubberband.","toggle",Config.TP_Safe,"TP_Safe")
+row(pages.Misc,"Kill Floor (Glitch)","Drop under map, shoot up.","toggle",Config.KillFloor,"KillFloor")
+row(pages.Misc,"Noclip","Walk through walls.","toggle",Config.Noclip,"Noclip")
+row(pages.Misc,"Silent Aim","Hits target without camera turn.","toggle",Config.SilentAim,"SilentAim")
+row(pages.Misc,"Spinbot","Rotates your character fast.","toggle",Config.Spinbot,"Spinbot")
+
+local tpTitle = txt(pages.Misc, "Teleport To Player", 12, T.text, Enum.Font.GothamBold)
+tpTitle.Size = UDim2.new(1, -10, 0, 24); tpTitle.Position = UDim2.fromOffset(5, 5)
+local tpList = Instance.new("ScrollingFrame")
+tpList.Size = UDim2.new(1, -3, 0, 150); tpList.BackgroundColor3 = T.panel; tpList.BorderSizePixel = 0; tpList.Parent = pages.Misc
+round(tpList, 10); outline(tpList)
+local tpLayout = Instance.new("UIListLayout"); tpLayout.Padding = UDim.new(0, 4); tpLayout.SortOrder = Enum.SortOrder.Name; tpLayout.Parent = tpList
+
+local function refreshTPList()
+    for _, child in ipairs(tpList:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1, -10, 0, 32); btn.BackgroundColor3 = T.row
+            btn.Text = "TP to " .. plr.Name; btn.TextColor3 = T.text; btn.Font = Enum.Font.GothamSemibold
+            btn.TextSize = 11; btn.AutoButtonColor = false; btn.Parent = tpList; round(btn, 6)
+            btn.MouseButton1Click:Connect(function() if DS.TPToPlayer then DS.TPToPlayer(plr.Name) end end)
+        end
+    end
+    task.defer(function() tpList.CanvasSize = UDim2.new(0, 0, 0, tpLayout.AbsoluteContentSize.Y + 10) end)
+end
+
+local active="Aim"
+local function selectTab(name)
+    active=name
+    for n,p in pairs(pageMap) do p.Visible=(n==name) end
+    for n,b in pairs(tabButtons) do
+        local on=n==name
+        tw(b,.12,{BackgroundColor3=on and T.accentDark or T.panel})
+        b.TextColor3=on and T.text or T.muted
+    end
+    if name == "Misc" then refreshTPList() end
+end
+DS.RefreshTP = refreshTPList
+
+local function addTab(name, order)
+    local b=Instance.new("TextButton"); b.Name=name; b.LayoutOrder=order
+    b.Size=UDim2.new(1/6,-3,1,0); b.BackgroundColor3=T.panel; b.Text=name
+    b.TextSize=9; b.TextColor3=T.muted; b.Font=Enum.Font.GothamBold
+    b.AutoButtonColor=false; b.Parent=tabs; round(b,9)
+    b.Activated:Connect(function() selectTab(name) end)
+    tabButtons[name]=b
+end
+addTab("Aim",1); addTab("Esp",2); addTab("Guns",3); addTab("Vis",4); addTab("World",5); addTab("Misc",6)
+selectTab("Aim")
+
+local floating=Instance.new("TextButton"); floating.Name="Reopen"; floating.Size=UDim2.fromOffset(54,54)
+floating.AnchorPoint=Vector2.new(1,.5); floating.Position=UDim2.new(1,-18,.65,0)
+floating.BackgroundColor3=T.panel; floating.Text="D"; floating.TextColor3=T.accent
+floating.TextSize=19; floating.Font=Enum.Font.GothamBold; floating.Visible=false
+floating.AutoButtonColor=false; floating.Parent=gui; round(floating,17); outline(floating,T.accent)
+
+local opened=true
+local function minimize()
+    if not opened then return end
+    opened=false
+    tw(main,.18,{BackgroundTransparency=1,Position=main.Position+UDim2.fromOffset(0,10)})
+    task.delay(.19,function() if not opened then main.Visible=false; floating.Visible=true end end)
+end
+local function restore()
+    opened=true; floating.Visible=false; main.Visible=true
+    main.BackgroundTransparency=1; main.Position=UDim2.new(.5,0,.5,10)
+    tw(main,.22,{BackgroundTransparency=0,Position=UDim2.new(.5,0,.5,0)})
+end
+close.Activated:Connect(minimize)
+floating.Activated:Connect(restore)
+
+local dragging=false
+local dragStart, startPosition
+top.InputBegan:Connect(function(input)
+    if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
+        dragging=true; dragStart=input.Position; startPosition=main.Position
+        input.Changed:Connect(function() if input.UserInputState==Enum.UserInputState.End then dragging=false end end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseMovement) then
+        local delta=input.Position-dragStart
+        main.Position=UDim2.new(startPosition.X.Scale,startPosition.X.Offset+delta.X,startPosition.Y.Scale,startPosition.Y.Offset+delta.Y)
+    end
+end)
+
+main.Visible=true; main.BackgroundTransparency=1
+tw(main,.28,{BackgroundTransparency=0})
+task.delay(.35,function() toast("DECAY loaded","UI loaded successfully.",T.green) end)
+print("[DECAY] Part 1 Loaded.")
+-- ═══════════════════════════════════════════
+--       DECAY | PART 2: AIM, ESP, RAGE
+-- ═══════════════════════════════════════════
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local player = Players.LocalPlayer
+
+local DS = _G.DS
+if not DS or not DS.Gui or not DS.Config then 
+    warn("[DECAY] Сначала запусти Часть 1!")
+    return 
+end
+local Config = DS.Config
+local T = DS.Theme
+local gui = DS.Gui
+
+local fovCircle = Instance.new("Frame")
+fovCircle.AnchorPoint, fovCircle.BackgroundTransparency = Vector2.new(0.5, 0.5), 1
+fovCircle.Parent = gui
+local fovStroke = Instance.new("UIStroke", fovCircle); fovStroke.Color, fovStroke.Thickness, fovStroke.Transparency = T.accent, 1, 0.5
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(0.5, 0)
+
+local espLayer = Instance.new("Frame")
+espLayer.Size, espLayer.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+espLayer.Parent = gui; espLayer.ZIndex = 1
+
+local espData, esp3DData = {}, {}
+
+function DS.GetClosestPlayer()
+    local target, minDist = nil, Config.Aim_FOV
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local myChar = player.Character
+    local myHead = myChar and myChar:FindFirstChild("Head")
+    if not myHead then return nil end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if head and hum and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen and screenPos.Z > 0 then
+                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    local dist3d = (head.Position - myHead.Position).Magnitude
+                    if screenDist < minDist and dist3d <= Config.Aim_Range then
+                        minDist = screenDist; target = head; target.Parent = plr.Character
+                    end
+                end
+            end
+        end
+    end
+    if target and Config.Aim_Visible then
+        local rayParam = RaycastParams.new()
+        rayParam.FilterDescendantsInstances = {player.Character, target.Parent}
+        rayParam.FilterType = Enum.RaycastFilterType.Exclude
+        if workspace:Raycast(Camera.CFrame.Position, target.Position - Camera.CFrame.Position, rayParam) then return nil end
+    end
+    return target
+end
+
+RunService:BindToRenderStep("AimbotCam", Enum.RenderPriority.Camera.Value + 1, function(dt)
+    if not Config.Aim_Enabled then return end
+    local target = DS.GetClosestPlayer()
+    if target then
+        local aimPos = target.Position
+        if Config.Aim_Projectile then
+            local camPos = Camera.CFrame.Position
+            local targetVel = target.AssemblyLinearVelocity or Vector3.zero
+            local dist = (target.Position - camPos).Magnitude
+            local travelTime = dist / math.max(Config.Aim_ProjSpeed, 1)
+            local predictedPos = target.Position + (targetVel * travelTime)
+            local gravityDrop = 0.5 * 196.2 * (travelTime * travelTime)
+            aimPos = predictedPos + Vector3.new(0, gravityDrop, 0)
+        end
+        local targetCF = CFrame.lookAt(Camera.CFrame.Position, aimPos)
+        Camera.CFrame = Camera.CFrame:Lerp(targetCF, math.clamp(Config.Aim_Smooth, 0.01, 1))
+    end
+end)
+
+-- SILENT AIM
+if hookfunction then
+    local oldRay = workspace.FindPartOnRayWithIgnoreList
+    if oldRay then
+        hookfunction(oldRay, function(self, ray, ignore, ...)
+            if Config.SilentAim and not checkcaller() then
+                local t = DS.GetClosestPlayer()
+                if t then
+                    local newDir = (t.Position - ray.Origin).Unit * ray.Direction.Magnitude
+                    return oldRay(self, Ray.new(ray.Origin, newDir), ignore, ...)
+                end
+            end
+            return oldRay(self, ray, ignore, ...)
+        end)
+    end
+    local oldCast = workspace.Raycast
+    if oldCast then
+        hookfunction(oldCast, function(self, origin, direction, params)
+            if Config.SilentAim and not checkcaller() then
+                local t = DS.GetClosestPlayer()
+                if t then
+                    local newDir = (t.Position - origin).Unit * direction.Magnitude
+                    return oldCast(self, origin, newDir, params)
+                end
+            end
+            return oldCast(self, origin, direction, params)
+        end)
+    end
+end
+
+-- SPINBOT
+local spinAngle = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not Config.Spinbot then return end
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    spinAngle = spinAngle + (dt * 25)
+    hrp.CFrame = CFrame.new(hrp.CFrame.Position) * CFrame.Angles(0, spinAngle, 0)
+end)
+
+-- ESP ОТРИСОВКА
+RunService.RenderStepped:Connect(function()
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    if Config.Aim_Enabled and Config.Aim_ShowFOV then
+        fovCircle.Visible = true; fovCircle.Position = UDim2.new(0, center.X, 0, center.Y)
+        fovCircle.Size = UDim2.new(0, Config.Aim_FOV * 2, 0, Config.Aim_FOV * 2)
+    else fovCircle.Visible = false end
+
+    if Config.ESP_Enabled then
+        local myChar = player.Character
+        local myPos = myChar and myChar:FindFirstChild("HumanoidRootPart") and myChar.HumanoidRootPart.Position
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == player then continue end
+            local char, hum = plr.Character, plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local head = char and char:FindFirstChild("Head")
+            if char and hum and hum.Health > 0 and root and head then
+                local topPos, topOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                local botPos, botOn = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.8, 0))
+                if topOn and botOn and topPos.Z > 0 then
+                    local e = espData[plr]
+                    if not e then
+                        e = { box = Instance.new("Frame", espLayer), stroke = Instance.new("UIStroke"), name = Instance.new("TextLabel"), dist = Instance.new("TextLabel") }
+                        e.box.BackgroundTransparency = 1; e.box.BorderSizePixel = 0
+                        e.stroke.Color = T.accent; e.stroke.Parent = e.box
+                        e.name.BackgroundTransparency = 1; e.name.TextColor3 = T.text
+                        e.name.Font = Enum.Font.GothamBold; e.name.TextSize = 12; e.name.TextStrokeTransparency = 0
+                        e.name.Size = UDim2.new(0, 150, 0, 15); e.name.Position = UDim2.new(0.5, -75, -1.2, 0); e.name.Parent = e.box
+                        e.dist.BackgroundTransparency = 1; e.dist.TextColor3 = T.muted
+                        e.dist.Font = Enum.Font.Gotham; e.dist.TextSize = 11; e.dist.TextStrokeTransparency = 0
+                        e.dist.Size = UDim2.new(0, 150, 0, 15); e.dist.Position = UDim2.new(0.5, -75, 1, 2); e.dist.Parent = e.box
+                        espData[plr] = e
+                    end
+                    local h = math.abs(botPos.Y - topPos.Y); local w = h * 0.6
+                    e.box.Visible = Config.ESP_Box; e.box.Position = UDim2.new(0, topPos.X - (w/2), 0, topPos.Y); e.box.Size = UDim2.new(0, w, 0, h)
+                    e.name.Visible = Config.ESP_Name; e.name.Text = plr.Name
+                    e.dist.Visible = Config.ESP_Dist; local d = myPos and math.floor((root.Position - myPos).Magnitude) or 0; e.dist.Text = d .. "m"
+                elseif espData[plr] then espData[plr].box.Visible = false end
+            elseif espData[plr] then espData[plr].box.Visible = false end
+        end
+    else for _, e in pairs(espData) do e.box.Visible = false end end
+
+    if Config.ESP_3D then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == player or not plr.Character then continue end
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                if not esp3DData[plr] or not esp3DData[plr].Parent then
+                    local hl = Instance.new("Highlight"); hl.FillColor = T.accent
+                    hl.OutlineColor = Color3.new(1,1,1); hl.FillTransparency = 0.5; hl.OutlineTransparency = 0
+                    hl.Adornee = plr.Character; hl.Parent = gui; esp3DData[plr] = hl
+                end
+            elseif esp3DData[plr] then esp3DData[plr]:Destroy(); esp3DData[plr] = nil end
+        end
+    else for _, v in pairs(esp3DData) do if v.Parent then v:Destroy() end end; table.clear(esp3DData) end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    if espData[plr] then espData[plr].box:Destroy(); espData[plr] = nil end
+    if esp3DData[plr] then esp3DData[plr]:Destroy(); esp3DData[plr] = nil end
+end)
+print("[DECAY] Part 2 Loaded.")
+-- ═══════════════════════════════════════════
+--       DECAY | PART 3: GUNS, VIS, WORLD, TP
+-- ═══════════════════════════════════════════
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+local player = Players.LocalPlayer
+
+local DS = _G.DS
+if not DS or not DS.Gui or not DS.Config then return end
+local Config = DS.Config
+local T = DS.Theme
+local gui = DS.Gui
+
+-- NOCLIP
+RunService.Stepped:Connect(function()
+    if Config.Noclip and player.Character then
+        for _, p in ipairs(player.Character:GetDescendants()) do
+            if p:IsA("BasePart") and p.CanCollide then p.CanCollide = false end
+        end
+    end
+end)
+
+-- ТЕЛЕПОРТ
+DS.TPToPlayer = function(targetName)
+    local target = Players:FindFirstChild(targetName)
+    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
+        DS.Toast("Teleport", "Target not found.", T.red); return
+    end
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    local targetCF = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2.5)
+    
+    if Config.TP_Safe then
+        DS.Toast("Teleport", "Safe TP", T.accent)
+        task.spawn(function()
+            local startCF = myRoot.CFrame
+            local dist = (targetCF.Position - startCF.Position).Magnitude
+            local steps = math.clamp(math.ceil(dist / 12), 5, 50) 
+            for i = 1, steps do
+                if not myRoot or not myRoot.Parent then break end
+                myRoot.CFrame = startCF:Lerp(targetCF, i / steps)
+                myRoot.AssemblyLinearVelocity = Vector3.zero
+                task.wait(0.04)
+            end
+        end)
+    else
+        myRoot.CFrame = targetCF
+        DS.Toast("Teleport", "Teleported", T.green)
+    end
+end
+
+-- KILL FLOOR
+local killFloorY = -40
+local killFloorBodyPos = nil
+RunService.Heartbeat:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    if Config.KillFloor and hrp and hum then
+        hum.PlatformStand = false
+        if not killFloorBodyPos or not killFloorBodyPos.Parent then
+            killFloorBodyPos = Instance.new("BodyPosition")
+            killFloorBodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            killFloorBodyPos.Position = Vector3.new(hrp.Position.X, killFloorY, hrp.Position.Z)
+            killFloorBodyPos.Parent = hrp
+        else killFloorBodyPos.Position = Vector3.new(hrp.Position.X, killFloorY, hrp.Position.Z) end
+        for _, p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") and p.CanCollide then p.CanCollide = false end end
+    elseif not Config.KillFloor and killFloorBodyPos then
+        killFloorBodyPos:Destroy(); killFloorBodyPos = nil
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") and not p.CanCollide then p.CanCollide = true end end
+            if hum then
+                hum.PlatformStand = false
+                if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 40, 0) end
+            end
+        end
+        DS.Toast("Kill Floor", "Disabled.", T.green)
+    end
+end)
+
+-- GUNS: FAST RELOAD & NO RECOIL
+local function getGun()
+    local char = player.Character
+    if not char then return nil end
+    for _, v in ipairs(char:GetChildren()) do
+        if v:IsA("Tool") then return v end
+    end
+    return nil
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if Config.FastReload then
+            local gun = getGun()
+            if gun then
+                for _, v in ipairs(gun:GetDescendants()) do
+                    if v:IsA("NumberValue") or v:IsA("IntValue") then
+                        local n = v.Name:lower()
+                        if n:find("reload") or n:find("cooldown") or n:find("delay") then
+                            v.Value = 0
+                        end
+                    end
+                end
+                local char = player.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                local animator = hum and hum:FindFirstChildOfClass("Animator")
+                if animator then
+                    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                        if track.Animation.Name:lower():find("reload") then track.Speed = 10 end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not Config.NoRecoil then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.CameraOffset = Vector3.new(0, 0, 0) end
+end)
+
+-- VISUALS: DARK SKY
+local originalSky = nil
+RunService.Heartbeat:Connect(function()
+    local sky = Lighting:FindFirstChildOfClass("Sky")
+    if Config.DarkSky then
+        if not originalSky then
+            if sky then
+                originalSky = sky.SkyboxBk
+                sky.SkyboxBk = ""; sky.SkyboxDn = ""; sky.SkyboxFt = ""; sky.SkyboxLf = ""; sky.SkyboxRt = ""; sky.SkyboxUp = ""
+            end
+            Lighting.Ambient = Color3.fromRGB(10, 10, 20)
+            Lighting.OutdoorAmbient = Color3.fromRGB(20, 20, 30)
+            Lighting.Brightness = 0.5
+        end
+    else
+        if originalSky then
+            if sky then
+                sky.SkyboxBk = originalSky; sky.SkyboxDn = originalSky; sky.SkyboxFt = originalSky
+                sky.SkyboxLf = originalSky; sky.SkyboxRt = originalSky; sky.SkyboxUp = originalSky
+            end
+            Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+            Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+            Lighting.Brightness = 2
+            originalSky = nil
+        end
+    end
+end)
+
+-- VISUALS: CHAMS GUNS
+local gunChams = {}
+RunService.RenderStepped:Connect(function()
+    local gun = getGun()
+    if Config.ChamsGun and gun then
+        for _, p in ipairs(gun:GetDescendants()) do
+            if p:IsA("BasePart") and not gunChams[p] then
+                local hl = Instance.new("Highlight")
+                hl.Name = "GunCham"; hl.Adornee = p
+                hl.FillColor = Color3.fromRGB(255, 0, 0); hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                hl.FillTransparency = 0.5; hl.OutlineTransparency = 0; hl.Parent = gui
+                
+                local light = Instance.new("PointLight")
+                light.Color = Color3.fromRGB(255, 0, 0); light.Range = 5; light.Brightness = 2; light.Parent = p
+                gunChams[p] = {hl = hl, light = light}
+            end
+        end
+    elseif not Config.ChamsGun then
+        for p, data in pairs(gunChams) do
+            if data.hl and data.hl.Parent then data.hl:Destroy() end
+            if data.light and data.light.Parent then data.light:Destroy() end
+        end
+        table.clear(gunChams)
+    end
+end)
+
+-- WORLD: TIME & GRASS
+RunService.Heartbeat:Connect(function()
+    if Config.World_Day then 
+        if math.abs(Lighting.ClockTime - 14) > 0.1 then Lighting.ClockTime = 14 end
+    else 
+        if math.abs(Lighting.ClockTime - 0) > 0.1 then Lighting.ClockTime = 0 end 
+    end
+end)
+
+local hiddenGrass, grassState = {}, nil
+RunService.Heartbeat:Connect(function()
+    if grassState ~= Config.World_NoGrass then
+        grassState = Config.World_NoGrass
+        if grassState then
+            workspace.Terrain.Decoration = false
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") and (v.Name:lower():find("grass") or v.Name:lower():find("foliage")) then
+                    if not hiddenGrass[v] then hiddenGrass[v] = {T = v.Transparency, C = v.CanCollide}; v.Transparency = 1; v.CanCollide = false end
+                end
+            end
+        else
+            for v, data in pairs(hiddenGrass) do if v and v.Parent then v.Transparency = data.T; v.CanCollide = data.C end end
+            table.clear(hiddenGrass)
+        end
+    end
+end)
+
+-- AUTO LOOT & ITEM ESP
+local lootCooldown = 0
+RunService.Heartbeat:Connect(function()
+    if not Config.AutoLoot or tick() < lootCooldown then return end
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") and v.Enabled then
+            local part = v.Parent
+            if part and part:IsA("BasePart") and (part.Position - hrp.Position).Magnitude <= 50 then
+                lootCooldown = tick() + 0.5
+                local oldCF = hrp.CFrame
+                hrp.CFrame = part.CFrame
+                pcall(function() fireproximityprompt(v) end)
+                task.wait(0.1)
+                if hrp and hrp.Parent then hrp.CFrame = oldCF end
+                break
+            end
+        end
+    end
+end)
+
+local itemDrawings, itemCache = {}, {}
+workspace.DescendantAdded:Connect(function(inst)
+    if Config.Item_Enabled and (inst:IsA("BasePart") or inst:IsA("Model")) and inst.Name:lower():find(Config.Item_Filter:lower()) then
+        table.insert(itemCache, inst)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not Config.Item_Enabled then 
+        for _, v in pairs(itemDrawings) do if v.text then v.text.Visible = false; v.square.Visible = false end end
+        return 
+    end
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    local validItems = {}
+    for i = #itemCache, 1, -1 do if not itemCache[i].Parent then table.remove(itemCache, i) end end
+    for _, v in ipairs(itemCache) do
+        local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
+        if part and v.Name:lower():find(Config.Item_Filter:lower()) then
+            local dist = (part.Position - myRoot.Position).Magnitude
+            if dist <= 250 then
+                local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen and sp.Z > 0 then validItems[v] = { pos = Vector2.new(sp.X, sp.Y), dist = dist, name = v.Name } end
+            end
+        end
+    end
+    local useDrawing = pcall(function() return Drawing.new("Text") end)
+    for v, data in pairs(validItems) do
+        if not itemDrawings[v] and useDrawing then
+            local txtObj = Drawing.new("Text"); txtObj.Size = 14; txtObj.Color = Color3.fromRGB(255, 220, 50)
+            txtObj.Center = true; txtObj.Outline = true; txtObj.OutlineColor = Color3.new(0,0,0)
+            local sq = Drawing.new("Square"); sq.Thickness = 1; sq.Color = Color3.fromRGB(255, 220, 50); sq.Filled = false
+            itemDrawings[v] = { text = txtObj, square = sq }
+        end
+        if itemDrawings[v] and useDrawing then
+            local d = itemDrawings[v]
+            d.text.Text = data.name .. " [" .. math.floor(data.dist) .. "m]"
+            d.text.Position = Vector2.new(data.pos.X, data.pos.Y - 20); d.text.Visible = true
+            d.square.Size = Vector2.new(10, 10); d.square.Position = Vector2.new(data.pos.X - 5, data.pos.Y - 5); d.square.Visible = true
+        end
+    end
+    for v, d in pairs(itemDrawings) do 
+        if not validItems[v] and useDrawing then d.text.Visible = false; d.square.Visible = false end 
+    end
+end)
+
+Players.PlayerAdded:Connect(function() if DS.RefreshTP then DS.RefreshTP() end end)
+Players.PlayerRemoving:Connect(function() task.wait(0.1); if DS.RefreshTP then DS.RefreshTP() end end)
+
+print("[DECAY] Part 3 Loaded.")
